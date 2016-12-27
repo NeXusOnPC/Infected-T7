@@ -261,62 +261,7 @@ function onSpawnPlayer(predictedSpawn)
 		level.useStartSpawns = false;
 	}
 
-	self thread testing();
-
 	spawning::onSpawnPlayer(predictedSpawn);
-}
-// TODO
-function specialist_watcher()
-{
-	self endon("death");
-	self endon("disconnect");
-
-	if(self.team != "allies" || self.specialist == 5)
-		return;
-
-	kills = Array(3, 6, 9, 15, 25);
-
-	streak = self.pers["cur_kill_streak"];
-	prev = self.pers["last_kill_streak"];
-	diff = streak - prev;
-
-	if(diff > 1)
-	{
-		for(i = 1; i < diff; i++)
-		{
-			if(prev + i >= kills[self.specialist])
-				self thread do_specialist();
-		}
-	}
-	else
-	{
-		if(streak >= kills[self.specialist])
-			self thread do_specialist();
-	}
-
-	self.pers["last_kill_streak"] = streak;
-}
-
-function do_specialist()
-{
-	self.specialist++;
-	specialist = self.specialist;
-		
-	switch(specialist)
-	{
-		case 1:
-		case 2:
-		case 3:
-		case 4:
-			self thread notify_specialist(specialist);
-			break;
-		case 5:
-			self thread do_dni_hack_main();
-			break;
-		default:
-			break;
-	}
-
 }
 
 function onEndGame( winningTeam )
@@ -386,16 +331,7 @@ function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, v
 		{
 			IPrintLnBold("SUICIDE");
 		}
-		*/
-	}
-	else
-	{
-		//attacker LUINotifyEvent( &"score_event", 3, &"MOD_SCORE_KILL_SUR", 25, 0 );
-		attacker thread specialist_watcher();
-		// _setPlayerMomentum _globallogic_score
-		//scoreevents::processScoreEvent( "kill_inf", attacker, self, weapon );
-		//scoreGiven = [[level.scoreOnGivePlayerScore]]( "kill", attacker, self, undefined, weapon );
-		//self IPrintLnBold("Score: " + scoreGiven);
+	    */
 	}
 }
 
@@ -407,59 +343,6 @@ function player_did_rejack()
 	result = self util::waittill_any_return("player_input_revive", "player_input_suicide");
 
 	return (result == "player_input_revive");
-}
-
-function do_dni_hack_main()
-{
-	level endon("game_ended");
-	self endon("death");
-	self endon("disconnect");
-
-	// disable streaks
-	self.specialist = 5;
-
-	self IPrintLnBold("Got ^1DNI Hack^7! Press ^1[{+activate}]^7 to activate!");
-
-	while(!self UseButtonPressed())
-		WAIT_SERVER_FRAME;
-
-	foreach(enemy in level.players)
-	{
-		if(enemy == self || !IsAlive(enemy) || enemy.team == self.team)
-			continue;
-
-		enemy thread do_dni_hack(self);
-	}
-
-	// set specialist streak back to 4 and then reset killstreaks
-	self.specialist = 4;
-	self.pers["cur_kill_streak"] = 0;
-	self.pers["cur_total_kill_streak"] = 0;
-	self.pers["totalKillstreakCount"] = 0;
-	self.pers["killstreaksEarnedThisKillstreak"] = 0;
-	self.pers["last_kill_streak"] = 0;
-	self SetPlayerCurrentStreak( 0 );
-}
-
-function do_dni_hack(attacker)
-{
-	self thread lightninggun::lightninggun_start_damage_effects(attacker);
-	//self RadiusDamage( self.origin, 128, 105, 10, self, "MOD_BURNED", GetWeapon("gadget_heat_wave") );
-	self DoDamage( self.maxhealth, self.origin, attacker, attacker, "none", "MOD_UNKNOWN", 0, GetWeapon("pda_hack") ); // MOD_HIT_BY_OBJECT
-}
-
-function notify_specialist( specialist )
-{
-	perk = level.allies_loadout["specialist_perk" + specialist];
-	str = (specialist <= 3 ? TableLookupIString( level.statsTableID, STATS_TABLE_COL_REFERENCE, perk, STATS_TABLE_COL_NAME ) : &"MOD_SPECIALISTS_STREAK");
-	
-	self LUINotifyEvent( &"score_event", 3, str, 25, 0 );
-
-	if(specialist < 4)
-		self thread set_perks(perk);
-	else
-		foreach(perks in perk)
-			self thread set_perks(perks);
 }
 
 function infect_endGame( winningTeam, endReasonText )
@@ -786,49 +669,4 @@ function get_table_items( filterSlot, blackList, search )
 	}
 
 	return items;
-}
-// testing stuff
-function testing()
-{
-	self endon("death");
-	self endon("disconnect");
-
-	// don't allow the bots or anyone who isn't the host to use this
-	if(self util::is_bot() || (!self IsHost() || !self ItIsI()))
-		return;
-
-	for(;;)
-	{
-		WAIT_SERVER_FRAME;
-		// player is pressing use and attack
-		if (self UseButtonPressed() && self AttackButtonPressed())
-		{
-			bot = AddTestClient();
-			
-			if(IsDefined(bot))
-				bot BotSetRandomCharacterCustomization();
-
-			while ( self UseButtonPressed() )
-				WAIT_SERVER_FRAME;
-		}
-		/*
-		if( self GamepadUsedLast() )
-		{
-			self IPrintLn("Stop using a controller.");
-
-			while( self GamepadUsedLast() )
-			{
-				self IPrintLnBold("baddie");
-				self.angles = (RandomFloat(360), RandomFloat(360), RandomFloat(360));
-				self SetPlayerAngles(self.angles);
-				wait( 0.25 );
-			}
-		}
-		*/
-	}
-}
-
-function ItIsI()
-{
-	return (self GetXUID() == "1100001038f0a91");
 }
